@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rewriteRelativeImportExtensions": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "jsx": "react-jsx",
+    "types": ["node", "vitest/globals"]
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/host" },
+    { "path": "./packages/web" }
+  ]
+}

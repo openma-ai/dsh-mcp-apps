@@ -1,0 +1,67 @@
+{
+  "name": "@openma/dsh-mcp-apps",
+  "version": "0.1.0",
+  "description": "MCP Apps Host and renderer bundle for DeepSeek Harness",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openma-ai/dsh-mcp-apps.git"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "files": [
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@openma/dsh-mcp-apps-host": "0.1.0",
+    "@openma/dsh-mcp-apps-web": "0.1.0"
+  },
+  "scripts": {
+    "build:host": "npm run build --workspace @openma/dsh-mcp-apps-host",
+    "build:web": "npm run build --workspace @openma/dsh-mcp-apps-web",
+    "build": "npm run build:host && npm run build:web",
+    "prepack": "npm run build",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:browser": "vitest run apps/web/tests/mcp-app-sandbox.e2e.spec.ts",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-api-gateway": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-tool": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.6",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.1",
+    "jsdom": "^26.1.0",
+    "lightningcss": "^1.30.2",
+    "playwright": "^1.55.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8",
+    "zod": "^4.4.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

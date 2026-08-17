@@ -1,0 +1,57 @@
+{
+  "name": "@openma/dsh-mcp-apps-host",
+  "version": "0.1.0",
+  "description": "MCP Apps Host registry and Typert Remote API for DeepSeek Harness",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openma-ai/dsh-mcp-apps.git",
+    "directory": "packages/host"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./typert": {
+      "types": "./generated/typert.host.d.ts",
+      "default": "./generated/typert.host.js"
+    },
+    "./remote": {
+      "types": "./generated/typert.remote-client.d.ts",
+      "default": "./generated/typert.remote-client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts",
+    "generated/typert.host.js",
+    "generated/typert.host.d.ts",
+    "generated/typert.remote-client.js",
+    "generated/typert.remote-client.d.ts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsdown --config tsdown.config.ts",
+    "prepack": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.6 <1"
+  }
+}
