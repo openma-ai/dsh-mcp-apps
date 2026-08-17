@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 // Exercise the package artifact built by `pretest`; Vitest's transform does
 // not parse the standard-decorator form used by Cordis services reliably.
 import * as McpAppsModule from '../lib/index.js'
@@ -29,6 +29,29 @@ function provider(serverName: string) {
 }
 
 describe('McpAppsRuntime', () => {
+  it('installs its runtime through the package plugin when the composition has none', async () => {
+    const ctx = new Context()
+
+    await ctx.plugin(McpAppsModule.default)
+
+    expect(ctx.get('mcpApps')).toBeInstanceOf(McpAppsModule.McpAppsRuntime)
+    await ctx.fiber.dispose()
+  })
+
+  it('leaves an official composition-provided mcpApps service in place', async () => {
+    const ctx = new Context()
+    class OfficialMcpApps extends Service {
+      readonly marker = 'official'
+      constructor(serviceCtx: Context) { super(serviceCtx, 'mcpApps') }
+    }
+    new OfficialMcpApps(ctx)
+
+    await ctx.plugin(McpAppsModule.default).await()
+
+    expect((ctx.get('mcpApps') as OfficialMcpApps).marker).toBe('official')
+    await ctx.fiber.dispose()
+  })
+
   it('routes AppBridge calls to the selected live server provider', async () => {
     expect(McpAppsModule.McpAppsRuntime).toBeDefined()
     const ctx = new Context()

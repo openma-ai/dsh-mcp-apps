@@ -1,19 +1,37 @@
 import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, expect, it } from 'vitest'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { sandboxProxyDataUrl } from '../../../packages/web/src/client/sandbox-proxy.ts'
 
 // Real-browser lifecycle coverage; the default Vitest project selects *.spec.ts.
 
 let browser: Browser
+let fixtureClient: Client
+let fixtureHtml: string
 
 beforeAll(async () => {
   const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   browser = await chromium.launch(existsSync(systemChrome) ? { executablePath: systemChrome } : {})
+  const fixtureServer = fileURLToPath(new URL('../../../examples/display-modes/server.mjs', import.meta.url))
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [fixtureServer],
+    stderr: 'pipe',
+  })
+  fixtureClient = new Client({ name: 'mcp-app-browser-fixture', version: '1.0.0' })
+  await fixtureClient.connect(transport)
+  const resource = await fixtureClient.readResource({ uri: 'ui://dsh/display-modes' })
+  const content = resource.contents[0]
+  if (content === undefined || !('text' in content)) throw new Error('display modes fixture returned no HTML')
+  fixtureHtml = content.text
 })
 
 afterAll(async () => {
+  await fixtureClient?.close()
   await browser.close()
 }, 30_000)
 
@@ -181,6 +199,102 @@ it('does not reopen host forwarding after an App self-navigates away from its CS
 
     await expect(page.evaluate(() =>
       (window as unknown as { mcpAppReceivedSecret?: boolean }).mcpAppReceivedSecret)).resolves.toBe(false)
+  } finally {
+    await page.close()
+  }
+}, 30_000)
+
+it('runs the real stdio App through every display mode without losing state', async () => {
+  const page = await hostPage()
+  try {
+    await page.evaluate(({ proxyUrl, html }) => {
+      const state = window as unknown as { fixtureReady?: boolean, fixtureMode?: string }
+      const outer = document.createElement('iframe')
+      outer.id = 'fixture-host'
+      outer.title = 'Display modes MCP App'
+      outer.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms')
+      document.body.append(outer)
+
+      const applyMode = (mode: 'inline' | 'fullscreen' | 'pip'): void => {
+        state.fixtureMode = mode
+        outer.dataset.mode = mode
+        outer.style.cssText = mode === 'fullscreen'
+          ? 'position:fixed;inset:0;width:100%;height:100%;border:0'
+          : mode === 'pip'
+            ? 'position:fixed;right:24px;bottom:24px;width:420px;height:320px;border:0'
+            : 'width:720px;height:520px;border:0'
+        outer.contentWindow?.postMessage({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/host-context-changed',
+          params: { displayMode: mode },
+        }, '*')
+      }
+
+      window.addEventListener('message', (event) => {
+        if (event.source !== outer.contentWindow) return
+        const data = event.data as { id?: number, method?: string }
+        if (data.method === 'ui/notifications/sandbox-proxy-ready') {
+          outer.contentWindow?.postMessage({
+            jsonrpc: '2.0',
+            method: 'ui/notifications/sandbox-resource-ready',
+            params: { html },
+          }, '*')
+          return
+        }
+        if (data.method === 'ui/initialize') {
+          outer.contentWindow?.postMessage({
+            jsonrpc: '2.0',
+            id: data.id,
+            result: {
+              protocolVersion: '2026-01-26',
+              hostInfo: { name: 'dsh-browser-fixture-host', version: '1.0.0' },
+              hostCapabilities: {},
+              hostContext: {
+                platform: 'web',
+                displayMode: 'inline',
+                availableDisplayModes: ['inline', 'fullscreen', 'pip'],
+              },
+            },
+          }, '*')
+          return
+        }
+        if (data.method === 'ui/notifications/initialized') {
+          outer.contentWindow?.postMessage({
+            jsonrpc: '2.0',
+            method: 'ui/notifications/tool-result',
+            params: {
+              content: [{ type: 'text', text: 'fixture ready' }],
+              structuredContent: { counter: 0 },
+            },
+          }, '*')
+          state.fixtureReady = true
+          return
+        }
+        if (data.method !== 'ui/request-display-mode') return
+        const mode = (event.data as { params?: { mode?: 'inline' | 'fullscreen' | 'pip' } }).params?.mode
+        if (mode === undefined) return
+        applyMode(mode)
+        outer.contentWindow?.postMessage({ jsonrpc: '2.0', id: data.id, result: { mode } }, '*')
+      })
+      outer.src = proxyUrl
+    }, { proxyUrl: sandboxProxyDataUrl('http://host.test'), html: fixtureHtml })
+
+    await page.waitForFunction(() =>
+      (window as unknown as { fixtureReady?: boolean }).fixtureReady === true, undefined, { timeout: 10_000 })
+    const appFrame = await expect.poll(() => {
+      const frame = page.frames().find(candidate => candidate.url().startsWith('data:text/html;charset=utf-8,'))
+      return frame?.locator('#app').count().then(count => count === 1 ? frame : undefined)
+    }, { timeout: 10_000 }).toBeTruthy().then(() =>
+      page.frames().find(candidate => candidate.url().startsWith('data:text/html;charset=utf-8,'))!)
+
+    await appFrame.locator('#increment').click()
+    await expect.poll(() => appFrame.locator('#count').textContent()).toBe('1')
+    for (const mode of ['fullscreen', 'pip', 'inline'] as const) {
+      await appFrame.locator(`#mode-${mode}`).click()
+      await expect.poll(() => page.locator('#fixture-host').getAttribute('data-mode')).toBe(mode)
+      await expect.poll(() => appFrame.locator('#count').textContent()).toBe('1')
+      await expect.poll(() => appFrame.locator('#app').getAttribute('data-mode')).toBe(mode)
+    }
   } finally {
     await page.close()
   }

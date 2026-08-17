@@ -31,10 +31,12 @@
   "scripts": {
     "build:host": "npm run build --workspace @openma/dsh-mcp-apps-host",
     "build:web": "npm run build --workspace @openma/dsh-mcp-apps-web",
-    "build": "npm run build:host && npm run build:web",
+    "build:example:display-modes": "tsdown --config examples/display-modes/tsdown.config.ts",
+    "build": "npm run build:host && npm run build:web && npm run build:example:display-modes",
     "prepack": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
+    "pretest:browser": "npm run build:example:display-modes",
     "test:browser": "vitest run apps/web/tests/mcp-app-sandbox.e2e.spec.ts",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

@@ -122,4 +122,45 @@ describe('MCP App sandbox proxy', () => {
     expect(hostPost).toHaveBeenCalledTimes(1)
     expect(hostPost).toHaveBeenCalledWith({ jsonrpc: '2.0', method: 'tools/call' }, window.location.origin)
   })
+
+  it('buffers App handshake traffic until the initial document proves ready', () => {
+    const outer = document.createElement('iframe')
+    document.body.append(outer)
+    const proxyWindow = outer.contentWindow as Window
+    const proxyDocument = outer.contentDocument as Document
+    const hostPost = vi.spyOn(proxyWindow.parent, 'postMessage').mockImplementation(() => {})
+    installSandboxProxy(proxyWindow, proxyDocument, window.location.origin, "default-src 'none'")
+    const inner = proxyDocument.querySelector('iframe') as HTMLIFrameElement
+    hostPost.mockClear()
+
+    dispatch(proxyWindow, proxyWindow.parent, window.location.origin, {
+      jsonrpc: '2.0',
+      method: 'ui/notifications/sandbox-resource-ready',
+      params: { html: '<!doctype html><main>App</main>' },
+    })
+    const loaded = new DOMParser().parseFromString(
+      decodeURIComponent(inner.src.slice(inner.src.indexOf(',') + 1)),
+      'text/html',
+    )
+    const bootstrap = loaded.querySelector('script')?.textContent ?? ''
+    const generation = /const generation = "([a-f0-9]+)"/u.exec(bootstrap)?.[1]
+    const innerWindow = { postMessage: vi.fn() } as unknown as Window
+    Object.defineProperty(inner, 'contentWindow', { configurable: true, value: innerWindow })
+
+    const initialize = { jsonrpc: '2.0', id: 1, method: 'ui/initialize', params: {} }
+    dispatch(proxyWindow, innerWindow, 'null', initialize)
+    dispatch(proxyWindow, innerWindow, 'null', {
+      jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'must-not-run' },
+    })
+    dispatch(proxyWindow, innerWindow, 'null', {
+      jsonrpc: '2.0', method: 'notifications/message', params: { data: 'must-not-flush' },
+    })
+    expect(hostPost).not.toHaveBeenCalled()
+
+    dispatch(proxyWindow, innerWindow, 'null', {
+      jsonrpc: '2.0', method: 'ui/notifications/sandbox-inner-ready', params: { generation },
+    })
+    expect(hostPost).toHaveBeenCalledTimes(1)
+    expect(hostPost).toHaveBeenCalledWith(initialize, window.location.origin)
+  })
 })

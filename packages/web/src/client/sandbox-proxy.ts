@@ -73,9 +73,19 @@ export function installSandboxProxy(
   const innerLeaving = 'ui/notifications/sandbox-inner-leaving'
   const reservedPrefix = 'ui/notifications/sandbox-'
   let activeGeneration: string | undefined
+  let expectedInitialLoad: string | undefined
+  let awaitsInitialReady = false
   let forwardsHostData = false
+  let pendingInitialize: unknown
   const stopForwardingOnNavigation = (): void => {
+    if (expectedInitialLoad !== undefined) {
+      expectedInitialLoad = undefined
+      return
+    }
     forwardsHostData = false
+    awaitsInitialReady = false
+    activeGeneration = undefined
+    pendingInitialize = undefined
   }
   inner.addEventListener('load', stopForwardingOnNavigation)
   const methodOf = (value: unknown): string | undefined => {
@@ -113,7 +123,10 @@ export function installSandboxProxy(
         loaded.head.prepend(bootstrap)
         loaded.head.prepend(meta)
         activeGeneration = generation
+        expectedInitialLoad = generation
+        awaitsInitialReady = true
         forwardsHostData = false
+        pendingInitialize = undefined
         inner.src = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>${loaded.documentElement.outerHTML}`)}`
         return
       }
@@ -130,17 +143,38 @@ export function installSandboxProxy(
       ? (params as { generation?: unknown }).generation
       : undefined
     if (method === innerReady) {
-      if (activeGeneration === undefined || generation !== activeGeneration) return
+      if (!awaitsInitialReady || activeGeneration === undefined || generation !== activeGeneration) return
+      awaitsInitialReady = false
       forwardsHostData = true
+      if (pendingInitialize !== undefined) proxyWindow.parent.postMessage(pendingInitialize, expectedHostOrigin)
+      pendingInitialize = undefined
       return
     }
     if (method === innerLeaving) {
       if (activeGeneration === undefined || generation !== activeGeneration) return
       forwardsHostData = false
+      awaitsInitialReady = false
       activeGeneration = undefined
+      pendingInitialize = undefined
       return
     }
-    if (method?.startsWith(reservedPrefix) === true || !forwardsHostData) return
+    if (method?.startsWith(reservedPrefix) === true) return
+    if (!forwardsHostData) {
+      const record = typeof event.data === 'object' && event.data !== null && !Array.isArray(event.data)
+        ? event.data as Record<string, unknown>
+        : undefined
+      const params = record?.params
+      const id = record?.id
+      if (awaitsInitialReady
+        && pendingInitialize === undefined
+        && method === 'ui/initialize'
+        && record?.jsonrpc === '2.0'
+        && (typeof id === 'string' || typeof id === 'number')
+        && typeof params === 'object' && params !== null && !Array.isArray(params)) {
+        pendingInitialize = event.data
+      }
+      return
+    }
     proxyWindow.parent.postMessage(event.data, expectedHostOrigin)
   }
   proxyWindow.addEventListener('message', listener)

@@ -1,5 +1,10 @@
-import { useEffect, useRef } from 'react'
-import { AppBridge, PostMessageTransport } from '@modelcontextprotocol/ext-apps/app-bridge'
+import { useEffect, useRef, useState } from 'react'
+import {
+  AppBridge,
+  PostMessageTransport,
+  type McpUiDisplayMode,
+  type McpUiHostContext,
+} from '@modelcontextprotocol/ext-apps/app-bridge'
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import type { McpAppMatch } from './payload.ts'
 import { sandboxProxyDataUrl } from './sandbox-proxy.ts'
@@ -7,6 +12,7 @@ import css from './McpAppView.module.css'
 
 const MAX_INLINE_HEIGHT = 720
 const MIN_INLINE_HEIGHT = 96
+const AVAILABLE_DISPLAY_MODES: McpUiDisplayMode[] = ['inline', 'fullscreen', 'pip']
 
 export interface McpAppViewProps {
   matched: McpAppMatch
@@ -36,9 +42,31 @@ function safeExternalUrl(raw: string): URL {
   return url
 }
 
+function hostContext(displayMode: McpUiDisplayMode): McpUiHostContext {
+  return {
+    theme: theme(),
+    platform: 'web',
+    locale: navigator.language,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    displayMode,
+    availableDisplayModes: AVAILABLE_DISPLAY_MODES,
+    containerDimensions: displayMode === 'inline'
+      ? { maxHeight: MAX_INLINE_HEIGHT }
+      : { width: window.innerWidth, height: window.innerHeight },
+  }
+}
+
 /** Render one validated MCP App result behind the official AppBridge protocol. */
 export function McpAppView({ matched, callTool, readResource }: McpAppViewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const bridgeRef = useRef<AppBridge | null>(null)
+  const displayModeRef = useRef<McpUiDisplayMode>('inline')
+  const [displayMode, setDisplayMode] = useState<McpUiDisplayMode>('inline')
+  const changeDisplayMode = (mode: McpUiDisplayMode): void => {
+    displayModeRef.current = mode
+    setDisplayMode(mode)
+    bridgeRef.current?.setHostContext(hostContext(mode))
+  }
 
   useEffect(() => {
     const iframe = iframeRef.current
@@ -54,17 +82,10 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
         sandbox: { ...matched.csp === undefined ? {} : { csp: matched.csp } },
       },
       {
-        hostContext: {
-          theme: theme(),
-          platform: 'web',
-          locale: navigator.language,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          displayMode: 'inline',
-          availableDisplayModes: ['inline'],
-          containerDimensions: { maxHeight: MAX_INLINE_HEIGHT },
-        },
+        hostContext: hostContext('inline'),
       },
     )
+    bridgeRef.current = bridge
     const transport = new PostMessageTransport(
       iframe.contentWindow as Window,
       iframe.contentWindow as Window,
@@ -81,7 +102,12 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
       window.open(external.href, '_blank', 'noopener,noreferrer')
       return Promise.resolve({})
     }
+    bridge.onrequestdisplaymode = async ({ mode }) => {
+      changeDisplayMode(mode)
+      return { mode }
+    }
     bridge.addEventListener('sizechange', ({ height }) => {
+      if (displayModeRef.current !== 'inline') return
       if (height === undefined || !Number.isFinite(height)) return
       const bounded = Math.min(MAX_INLINE_HEIGHT, Math.max(MIN_INLINE_HEIGHT, Math.round(height)))
       iframe.style.height = `${bounded}px`
@@ -106,6 +132,7 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
 
     return () => {
       disposed = true
+      if (bridgeRef.current === bridge) bridgeRef.current = null
       if (initialized) {
         void bridge.teardownResource({}, { timeout: 250 })
           .catch((_viewAlreadyGone: unknown) => undefined)
@@ -115,7 +142,21 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
   }, [callTool, matched, readResource])
 
   return (
-    <div className={css.root} data-border={matched.prefersBorder === false ? 'false' : 'true'}>
+    <div
+      className={css.root}
+      data-border={matched.prefersBorder === false ? 'false' : 'true'}
+      data-display-mode={displayMode}
+    >
+      {displayMode === 'inline' ? null : (
+        <button
+          type="button"
+          className={css.modeClose}
+          aria-label="Return MCP App inline"
+          onClick={() => { changeDisplayMode('inline') }}
+        >
+          ×
+        </button>
+      )}
       <iframe
         ref={iframeRef}
         className={css.frame}

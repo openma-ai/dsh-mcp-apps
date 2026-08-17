@@ -129,4 +129,10 @@ export class McpAppsRuntime extends TypertRemoteService {
   }
 }
 
-export default McpAppsRuntime
+/** Install the fallback Host only when the DSH composition does not own it. */
+export function apply(ctx: Context): void {
+  if (ctx.get('mcpApps') !== undefined) return
+  new McpAppsRuntime(ctx)
+}
+
+export default apply

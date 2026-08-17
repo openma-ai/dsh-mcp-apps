@@ -2,7 +2,7 @@
 
 MCP Apps support for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness), packaged as ordinary Cordis plugins.
 
-The project deliberately keeps the protocol host and each presentation surface separate. Installing the bundle adds two independent rows: a Host service that shares the existing MCP connection and a Web renderer that runs App HTML behind a double-iframe sandbox.
+The project deliberately keeps the protocol host and each presentation surface separate. Installing the bundle adds two independent rows: a Host service that shares the existing MCP connection and a Web renderer that runs App HTML behind a double-iframe sandbox. One AppBridge session can move between inline, fullscreen, and picture-in-picture surfaces without remounting its iframe.
 
 ## Install
 
@@ -17,17 +17,18 @@ the bundle patch can resolve its local Host and Web rows:
 dsh plugin --profile web add ./packages/host ./packages/web .
 ```
 
-Use that full bundle only when DSH does not already provide the `mcpApps` Host
-service. On a DSH composition that already includes `ctx.mcpApps` and the
-generated `remote.mcpApps` namespace, do not activate this repository's Host
-row a second time. Install only the Web renderer instead:
+The full bundle is safe on a DSH composition that already provides `ctx.mcpApps`
+and the generated `remote.mcpApps` namespace: the fallback Host row becomes a
+no-op and the Web renderer reuses the existing Remote. If the active profile is
+known to include the official Host already, installing only the renderer is the
+minimal equivalent:
 
 ```sh
 dsh plugin --profile web add ./packages/web
 ```
 
-The renderer consumes the composition-provided Remote; it never mounts a
-second copy of the Host descriptors.
+The renderer consumes a composition-provided Remote when present and mounts its
+checked-in descriptor only for the standalone fallback Host.
 
 The bundle patch expands to:
 
@@ -88,7 +89,9 @@ Untrusted App HTML never runs in the DSH document. It is loaded into an opaque-o
 - reserves internal sandbox messages and uses a per-document generation marker;
 - closes Host-to-App forwarding as soon as the inner document navigates;
 - allows external navigation only to HTTP(S) URLs in a new tab;
-- bounds inline height requests to 96–720 px.
+- bounds inline height requests to 96–720 px;
+- moves one live iframe wrapper between inline, fullscreen, and bounded floating
+  picture-in-picture surfaces instead of recreating App state.
 
 The implementation uses the official `@modelcontextprotocol/ext-apps` `AppBridge` and `PostMessageTransport`.
 
@@ -110,11 +113,25 @@ npm run test:browser
 
 `test:browser` launches Playwright Chromium (or local Google Chrome on macOS) to verify the double-iframe origin and navigation boundary.
 
+[`examples/display-modes`](./examples/display-modes) is a real stdio MCP
+server built with the official MCP Apps server helpers and `App` client. Its
+`display_modes` tool opens `ui://dsh/display-modes`; increment the counter and
+switch through all three surfaces to verify that the App session remains live:
+
+```sh
+npm run build:example:display-modes
+node examples/display-modes/server.mjs
+```
+
 ## Compatibility
 
-The Web renderer targets the `tool.call.takeover` chain present on DSH main. The currently published DSH UI Tool declarations do not yet contain that slot, so this package carries a temporary declaration merge; the actual DSH runtime must include the takeover slot for MCP App cards to render.
+The Web renderer targets the `tool.call.takeover` chain present in current DSH
+Web builds. When composed with DSH `0.1.0-rc.7`, its priority `-110` lets this
+three-mode renderer claim an MCP App result before the bundled inline-only
+renderer at priority `-100`. Other tool results continue down the ordinary
+takeover chain.
 
-The renderer currently advertises inline display mode only. Fullscreen, picture-in-picture, downloads, App-to-chat messages, and sampling are not enabled.
+Downloads, App-to-chat messages, and sampling are not enabled yet.
 
 ## License
 

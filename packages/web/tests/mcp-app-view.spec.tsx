@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import type { McpAppMatch } from '../src/client/payload.ts'
@@ -152,5 +152,92 @@ describe('McpAppView', () => {
       expect(iframe.style.height).toBe('720px')
     })
     expect(open).not.toHaveBeenCalled()
+  })
+
+  it('switches inline, fullscreen, and pip without remounting the App', async () => {
+    const view = render(<McpAppView
+      matched={match}
+      callTool={vi.fn()}
+      readResource={vi.fn()}
+    />)
+    const iframe = view.getByTitle('weather MCP App') as HTMLIFrameElement
+    const originalIframe = iframe
+    const appWindow = iframe.contentWindow as Window
+    const post = vi.spyOn(appWindow, 'postMessage').mockImplementation(() => {})
+    const root = iframe.closest('[data-display-mode]') as HTMLElement
+
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'ui/initialize',
+        params: {
+          protocolVersion: '2026-01-26',
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen', 'pip'] },
+          appInfo: { name: 'display-modes-fixture', version: '1.0.0' },
+        },
+      })
+      message(appWindow, {
+        jsonrpc: '2.0',
+        method: 'ui/notifications/initialized',
+        params: {},
+      })
+    })
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({
+        id: 10,
+        result: expect.objectContaining({
+          hostContext: expect.objectContaining({
+            displayMode: 'inline',
+            availableDisplayModes: ['inline', 'fullscreen', 'pip'],
+          }),
+        }),
+      }), '*')
+    })
+
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        id: 11,
+        method: 'ui/request-display-mode',
+        params: { mode: 'fullscreen' },
+      })
+    })
+    await waitFor(() => {
+      expect(root.dataset.displayMode).toBe('fullscreen')
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({
+        id: 11,
+        result: { mode: 'fullscreen' },
+      }), '*')
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'ui/notifications/host-context-changed',
+        params: expect.objectContaining({ displayMode: 'fullscreen' }),
+      }), '*')
+    })
+    expect(view.getByTitle('weather MCP App')).toBe(originalIframe)
+
+    fireEvent.click(view.getByRole('button', { name: 'Return MCP App inline' }))
+    await waitFor(() => {
+      expect(root.dataset.displayMode).toBe('inline')
+    })
+    expect(view.getByTitle('weather MCP App')).toBe(originalIframe)
+
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        id: 12,
+        method: 'ui/request-display-mode',
+        params: { mode: 'pip' },
+      })
+    })
+    await waitFor(() => {
+      expect(root.dataset.displayMode).toBe('pip')
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({
+        id: 12,
+        result: { mode: 'pip' },
+      }), '*')
+    })
+    expect(view.getByTitle('weather MCP App')).toBe(originalIframe)
   })
 })

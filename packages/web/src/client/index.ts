@@ -6,9 +6,7 @@ import {
   type CallToolResult,
   type ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types.js'
-// Type-only: merges the composition-generated `mcpApps` namespace into the
-// Client Remote face without mounting its runtime descriptors again.
-import type {} from '@openma/dsh-mcp-apps-host/remote'
+import mcpAppsRemote from '@openma/dsh-mcp-apps-host/remote'
 import type { McpJsonObject } from '@openma/dsh-mcp-apps-host/types'
 import { McpAppView } from './McpAppView.tsx'
 import { selectMcpApp } from './payload.ts'
@@ -17,13 +15,14 @@ export { McpAppView, type McpAppViewProps } from './McpAppView.tsx'
 export { selectMcpApp, type McpAppCsp, type McpAppMatch } from './payload.ts'
 
 /** Services required by the Tool takeover and generated MCP Apps Remote. */
-export const inject = ['slots', 'remote', 'remote.mcpApps']
+export const inject = ['slots', 'remote']
 
-/** Register the shape-driven Tool renderer over the composition-mounted Remote. */
-export function apply(ctx: ClientContext): void {
+/** Register the shape-driven Tool renderer over the available MCP Apps Remote. */
+export async function apply(ctx: ClientContext): Promise<void> {
+  if (ctx.get('remote.mcpApps') === undefined) await ctx.remote.$mount(mcpAppsRemote)
   ctx.slots.inject('tool.call.takeover', () => ctx.slots.register({
     name: 'tool.call.takeover',
-    priority: -100,
+    priority: -110,
     select: selectMcpApp,
     inject: () => ({
       callTool: async (
