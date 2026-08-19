@@ -12,7 +12,16 @@ import css from './McpAppView.module.css'
 
 const MAX_INLINE_HEIGHT = 720
 const MIN_INLINE_HEIGHT = 96
+const SIDE_PANEL_WIDTH = 720
+const PIP_WIDTH = 420
+const PIP_HEIGHT = 320
+const NARROW_VIEWPORT = 640
 const AVAILABLE_DISPLAY_MODES: McpUiDisplayMode[] = ['inline', 'fullscreen', 'pip']
+const DISPLAY_MODE_LABELS: Record<McpUiDisplayMode, string> = {
+  inline: 'Show MCP App inline',
+  fullscreen: 'Open MCP App in side panel',
+  pip: 'Open MCP App in picture in picture',
+}
 
 export interface McpAppViewProps {
   matched: McpAppMatch
@@ -43,6 +52,15 @@ function safeExternalUrl(raw: string): URL {
 }
 
 function hostContext(displayMode: McpUiDisplayMode): McpUiHostContext {
+  const compactInset = window.innerWidth <= NARROW_VIEWPORT ? 24 : 32
+  const containerDimensions = displayMode === 'inline'
+    ? { maxHeight: MAX_INLINE_HEIGHT }
+    : displayMode === 'fullscreen'
+      ? { width: Math.min(SIDE_PANEL_WIDTH, window.innerWidth), height: window.innerHeight }
+      : {
+          width: Math.max(0, Math.min(PIP_WIDTH, window.innerWidth - compactInset)),
+          height: Math.max(0, Math.min(PIP_HEIGHT, window.innerHeight - compactInset)),
+        }
   return {
     theme: theme(),
     platform: 'web',
@@ -50,10 +68,32 @@ function hostContext(displayMode: McpUiDisplayMode): McpUiHostContext {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     displayMode,
     availableDisplayModes: AVAILABLE_DISPLAY_MODES,
-    containerDimensions: displayMode === 'inline'
-      ? { maxHeight: MAX_INLINE_HEIGHT }
-      : { width: window.innerWidth, height: window.innerHeight },
+    containerDimensions,
   }
+}
+
+function DisplayModeIcon({ mode }: { mode: McpUiDisplayMode }) {
+  if (mode === 'inline') {
+    return (
+      <svg aria-hidden="true" className={css.hostIcon} viewBox="0 0 16 16">
+        <path d="m4.5 4.5 7 7m0-7-7 7" />
+      </svg>
+    )
+  }
+  if (mode === 'fullscreen') {
+    return (
+      <svg aria-hidden="true" className={css.hostIcon} viewBox="0 0 16 16">
+        <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="1.5" />
+        <path d="M9.5 2.75v10.5" />
+      </svg>
+    )
+  }
+  return (
+    <svg aria-hidden="true" className={css.pipIcon} viewBox="0 0 16 16">
+      <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="1.5" />
+      <rect x="7.25" y="7.25" width="4.5" height="3.75" rx=".75" />
+    </svg>
+  )
 }
 
 /** Render one validated MCP App result behind the official AppBridge protocol. */
@@ -61,7 +101,9 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const bridgeRef = useRef<AppBridge | null>(null)
   const displayModeRef = useRef<McpUiDisplayMode>('inline')
+  const appDisplayModesRef = useRef<McpUiDisplayMode[]>(['inline'])
   const [displayMode, setDisplayMode] = useState<McpUiDisplayMode>('inline')
+  const [appDisplayModes, setAppDisplayModes] = useState<McpUiDisplayMode[]>([])
   const changeDisplayMode = (mode: McpUiDisplayMode): void => {
     displayModeRef.current = mode
     setDisplayMode(mode)
@@ -103,6 +145,7 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
       return Promise.resolve({})
     }
     bridge.onrequestdisplaymode = async ({ mode }) => {
+      if (!appDisplayModesRef.current.includes(mode)) return { mode: displayModeRef.current }
       changeDisplayMode(mode)
       return { mode }
     }
@@ -120,6 +163,11 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
     })
     bridge.addEventListener('initialized', () => {
       initialized = true
+      const declaredModes = bridge.getAppCapabilities()?.availableDisplayModes ?? []
+      const mutualModes = AVAILABLE_DISPLAY_MODES.filter(mode =>
+        mode === 'inline' || declaredModes.includes(mode))
+      appDisplayModesRef.current = mutualModes
+      setAppDisplayModes(mutualModes)
       void bridge.sendToolInput(matched.arguments === undefined ? {} : { arguments: matched.arguments })
       void bridge.sendToolResult(matched.result)
     })
@@ -141,22 +189,15 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
     }
   }, [callTool, matched, readResource])
 
+  const modeActions = appDisplayModes.filter(mode => mode !== displayMode)
+
   return (
     <div
       className={css.root}
       data-border={matched.prefersBorder === false ? 'false' : 'true'}
       data-display-mode={displayMode}
+      data-host-surface={displayMode === 'fullscreen' ? 'side-panel' : displayMode}
     >
-      {displayMode === 'inline' ? null : (
-        <button
-          type="button"
-          className={css.modeClose}
-          aria-label="Return MCP App inline"
-          onClick={() => { changeDisplayMode('inline') }}
-        >
-          ×
-        </button>
-      )}
       <iframe
         ref={iframeRef}
         className={css.frame}
@@ -164,6 +205,22 @@ export function McpAppView({ matched, callTool, readResource }: McpAppViewProps)
         sandbox="allow-scripts allow-same-origin allow-forms"
         referrerPolicy="no-referrer"
       />
+      {modeActions.length === 0 ? null : (
+        <div className={css.modeControls} role="toolbar" aria-label="MCP App display">
+          {modeActions.map(mode => (
+            <button
+              key={mode}
+              type="button"
+              className={css.modeButton}
+              aria-label={DISPLAY_MODE_LABELS[mode]}
+              title={DISPLAY_MODE_LABELS[mode]}
+              onClick={() => { changeDisplayMode(mode) }}
+            >
+              <DisplayModeIcon mode={mode} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

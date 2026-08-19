@@ -154,6 +154,94 @@ describe('McpAppView', () => {
     expect(open).not.toHaveBeenCalled()
   })
 
+  it('offers side-panel and pip as bottom-corner host controls', async () => {
+    const view = render(<McpAppView
+      matched={match}
+      callTool={vi.fn()}
+      readResource={vi.fn()}
+    />)
+    const iframe = view.getByTitle('weather MCP App') as HTMLIFrameElement
+    const appWindow = iframe.contentWindow as Window
+    vi.spyOn(appWindow, 'postMessage').mockImplementation(() => {})
+    const root = iframe.closest('[data-display-mode]') as HTMLElement
+
+    expect(view.queryByRole('toolbar', { name: 'MCP App display' })).toBeNull()
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'ui/initialize',
+        params: {
+          protocolVersion: '2026-01-26',
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen', 'pip'] },
+          appInfo: { name: 'display-modes-fixture', version: '1.0.0' },
+        },
+      })
+    })
+    await waitFor(() => {
+      expect(appWindow.postMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 8 }), '*')
+    })
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        method: 'ui/notifications/initialized',
+        params: {},
+      })
+    })
+
+    await waitFor(() => {
+      expect(view.getByRole('toolbar', { name: 'MCP App display' })).not.toBeNull()
+    })
+    expect(view.getByRole('button', { name: 'Open MCP App in side panel' })).not.toBeNull()
+    expect(view.getByRole('button', { name: 'Open MCP App in picture in picture' })).not.toBeNull()
+    expect(view.queryByRole('button', { name: 'Show MCP App inline' })).toBeNull()
+
+    fireEvent.click(view.getByRole('button', { name: 'Open MCP App in side panel' }))
+    expect(root.dataset.displayMode).toBe('fullscreen')
+    expect(root.dataset.hostSurface).toBe('side-panel')
+    expect(view.getByRole('button', { name: 'Show MCP App inline' })).not.toBeNull()
+    expect(view.queryByRole('button', { name: 'Open MCP App in side panel' })).toBeNull()
+  })
+
+  it('omits host controls for display modes the App does not support', async () => {
+    const view = render(<McpAppView
+      matched={match}
+      callTool={vi.fn()}
+      readResource={vi.fn()}
+    />)
+    const iframe = view.getByTitle('weather MCP App') as HTMLIFrameElement
+    const appWindow = iframe.contentWindow as Window
+    vi.spyOn(appWindow, 'postMessage').mockImplementation(() => {})
+
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'ui/initialize',
+        params: {
+          protocolVersion: '2026-01-26',
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
+          appInfo: { name: 'side-panel-only-fixture', version: '1.0.0' },
+        },
+      })
+    })
+    await waitFor(() => {
+      expect(appWindow.postMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }), '*')
+    })
+    act(() => {
+      message(appWindow, {
+        jsonrpc: '2.0',
+        method: 'ui/notifications/initialized',
+        params: {},
+      })
+    })
+
+    await waitFor(() => {
+      expect(view.getByRole('button', { name: 'Open MCP App in side panel' })).not.toBeNull()
+    })
+    expect(view.queryByRole('button', { name: 'Open MCP App in picture in picture' })).toBeNull()
+  })
+
   it('switches inline, fullscreen, and pip without remounting the App', async () => {
     const view = render(<McpAppView
       matched={match}
@@ -177,6 +265,12 @@ describe('McpAppView', () => {
           appInfo: { name: 'display-modes-fixture', version: '1.0.0' },
         },
       })
+    })
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }), '*')
+    })
+    act(() => {
       message(appWindow, {
         jsonrpc: '2.0',
         method: 'ui/notifications/initialized',
@@ -212,12 +306,16 @@ describe('McpAppView', () => {
       }), '*')
       expect(post).toHaveBeenCalledWith(expect.objectContaining({
         method: 'ui/notifications/host-context-changed',
-        params: expect.objectContaining({ displayMode: 'fullscreen' }),
+        params: expect.objectContaining({
+          displayMode: 'fullscreen',
+          containerDimensions: { width: 720, height: 768 },
+        }),
       }), '*')
     })
     expect(view.getByTitle('weather MCP App')).toBe(originalIframe)
 
-    fireEvent.click(view.getByRole('button', { name: 'Return MCP App inline' }))
+    expect(root.dataset.hostSurface).toBe('side-panel')
+    fireEvent.click(view.getByRole('button', { name: 'Show MCP App inline' }))
     await waitFor(() => {
       expect(root.dataset.displayMode).toBe('inline')
     })
@@ -236,6 +334,13 @@ describe('McpAppView', () => {
       expect(post).toHaveBeenCalledWith(expect.objectContaining({
         id: 12,
         result: { mode: 'pip' },
+      }), '*')
+      expect(post).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'ui/notifications/host-context-changed',
+        params: expect.objectContaining({
+          displayMode: 'pip',
+          containerDimensions: { width: 420, height: 320 },
+        }),
       }), '*')
     })
     expect(view.getByTitle('weather MCP App')).toBe(originalIframe)

@@ -33,10 +33,10 @@ checked-in descriptor only for the standalone fallback Host.
 The bundle patch expands to:
 
 ```yaml
-- id: openma-mcp-apps-host
+- id: mcp-apps-host
   name: '@openma/dsh-mcp-apps-host'
 
-- id: openma-mcp-apps-web
+- id: mcp-apps-web
   name: '@openma/dsh-mcp-apps-web'
 ```
 
@@ -90,8 +90,11 @@ Untrusted App HTML never runs in the DSH document. It is loaded into an opaque-o
 - closes Host-to-App forwarding as soon as the inner document navigates;
 - allows external navigation only to HTTP(S) URLs in a new tab;
 - bounds inline height requests to 96–720 px;
-- moves one live iframe wrapper between inline, fullscreen, and bounded floating
-  picture-in-picture surfaces instead of recreating App state.
+- moves one live iframe wrapper between inline, a right-side panel for the
+  protocol's `fullscreen` mode, and bounded picture-in-picture instead of
+  recreating App state;
+- exposes unobtrusive bottom-left Host controls only for display modes the App
+  advertises through `appCapabilities.availableDisplayModes`.
 
 The implementation uses the official `@modelcontextprotocol/ext-apps` `AppBridge` and `PostMessageTransport`.
 

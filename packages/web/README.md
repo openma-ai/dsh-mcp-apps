@@ -4,6 +4,11 @@ Sandboxed MCP Apps Web renderer for DeepSeek Harness. It consumes the `remote.mc
 
 The renderer validates the App resource shape and CSP domains, restricts resource reads to the original server's `ui://` resources, allows only HTTP(S) external links, and closes message forwarding after inner-frame navigation.
 
+Display-mode controls use the DSH Host's quiet icon-button treatment at the
+bottom-left of the App. They appear only after capability negotiation; DSH maps
+the MCP Apps `fullscreen` mode to a rectangular right-side panel and keeps
+`pip` as a bounded floating window.
+
 This is a browser-only presentation plugin. Terminal clients should install a separate renderer instead of executing App HTML inline.
 
 Usually install the [`@openma/dsh-mcp-apps`](https://github.com/openma-ai/dsh-mcp-apps) bundle instead of this package directly.
