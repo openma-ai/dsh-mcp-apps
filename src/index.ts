@@ -2,8 +2,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 
 const CHILD_ROWS = [
-  { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps-host' },
-  { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps-web' },
+  { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps/host' },
+  { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps/web' },
 ] as const
 
 export const name = 'mcp-apps-bundle'

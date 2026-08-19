@@ -4,17 +4,28 @@ MCP Apps support for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/dee
 
 The project deliberately keeps the protocol host and each presentation surface separate. Installing the bundle adds two independent rows: a Host service that shares the existing MCP connection and a Web renderer that runs App HTML behind a double-iframe sandbox. One AppBridge session can move between inline, fullscreen, and picture-in-picture surfaces without remounting its iframe.
 
+## Which package should I install?
+
+| Goal | Install |
+|---|---|
+| Use Codex, Claude Code, Pi, or portable Agent Plugins in DSH, including their MCP Apps | [`@openma/dsh-agents-plugins-bridge`](https://github.com/openma-ai/dsh-agents-plugins) only; it already carries MCP Apps |
+| Add MCP Apps to a Web profile without the foreign-plugin bridge | `@openma/dsh-mcp-apps` |
+
+The standalone package and the Bridge use the same Host and Web runtime
+packages. Do not install both bundles into one profile just to get the
+renderer twice.
+
 ## Install
 
 ```sh
 dsh plugin --profile web add @openma/dsh-mcp-apps
 ```
 
-From a local checkout, install all three workspace packages in one command so
-the bundle patch can resolve its local Host and Web rows:
+From a local checkout, install dependencies and add only the root bundle:
 
 ```sh
-dsh plugin --profile web add ./packages/host ./packages/web .
+npm install
+dsh plugin --profile web add .
 ```
 
 The full bundle is safe on a DSH composition that already provides `ctx.mcpApps`
@@ -30,7 +41,7 @@ dsh plugin --profile web add ./packages/web
 The renderer consumes a composition-provided Remote when present and mounts its
 checked-in descriptor only for the standalone fallback Host.
 
-The bundle patch mounts one nestable kernel:
+The bundle patch mounts one kernel:
 
 ```yaml
 - id: mcp-apps-bundle
@@ -38,8 +49,11 @@ The bundle patch mounts one nestable kernel:
 ```
 
 That kernel owns two independent child rows, `mcp-apps-host` and
-`mcp-apps-web`. This lets another bundle—such as the Agent Plugins Bridge—mount
-MCP Apps as one nested plugin without copying its implementation or lifecycle.
+`mcp-apps-web`. Both rows point at package-owned wrapper exports. Each wrapper
+resolves its runtime from this package's dependency graph, imports it through
+the DSH Loader, and mounts it with `ctx.plugin`; profile-level dependency
+hoisting is not required. The Agent Plugins Bridge uses the same wrapper shape
+from its own root package.
 
 Keep MCP server connections as their own plugin rows. DSH's `mcp-client` notices the optional `ctx.mcpApps` service and contributes its live connection automatically:
 
@@ -102,6 +116,22 @@ The implementation uses the official `@modelcontextprotocol/ext-apps` `AppBridge
 ## Other clients
 
 The Host package is UI-neutral. The full HTML/AppBridge path is currently implemented only by the Web package. A TUI can install the Host independently and provide its own renderer (for example, a text fallback or “open in browser” action); terminal clients should not execute arbitrary App HTML inline.
+
+[`@openma/dsh-agents-plugins-bridge`](https://github.com/openma-ai/dsh-agents-plugins)
+uses this boundary directly: its Web profile gets the sandboxed renderer, while
+its TUI profile keeps the shared MCP tools, resources, prompts, and backend
+lifecycle without attempting to draw App HTML in the terminal.
+
+## Related projects
+
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — Host,
+  Loader, MCP client, and Web plugin platform.
+- [Agent Plugins Bridge](https://github.com/openma-ai/dsh-agents-plugins) —
+  one-package Codex, Claude Code, Pi, and Agent Plugins compatibility layer.
+- [DeepSeek Harness TUI](https://github.com/openma-ai/deepseek-harness-tui) —
+  terminal client for the same Host-side tools and commands.
+- [DeepSeek Harness ACP](https://github.com/openma-ai/deepseek-harness-acp) —
+  exposes Host capabilities to ACP clients.
 
 ## Development
 

@@ -18,6 +18,14 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./host": {
+      "types": "./lib/host.d.ts",
+      "default": "./lib/host.js"
+    },
+    "./web": {
+      "types": "./lib/web.d.ts",
+      "default": "./lib/web.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },

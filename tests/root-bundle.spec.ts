@@ -34,8 +34,8 @@ describe('nestable MCP Apps bundle plugin', () => {
     const dispose = await apply(bench.ctx as never)
 
     expect(bench.created).toEqual([
-      { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps-host' },
-      { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps-web' },
+      { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps/host' },
+      { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps/web' },
     ])
 
     await dispose?.()
@@ -43,12 +43,12 @@ describe('nestable MCP Apps bundle plugin', () => {
   })
 
   it('reuses children owned by another bundle row without removing them', async () => {
-    const host = { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps-host' }
+    const host = { id: 'mcp-apps-host', name: '@openma/dsh-mcp-apps/host' }
     const bench = harness([host])
     const dispose = await apply(bench.ctx as never)
 
     expect(bench.created).toEqual([
-      { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps-web' },
+      { id: 'mcp-apps-web', name: '@openma/dsh-mcp-apps/web' },
     ])
     await dispose?.()
     expect(bench.removed).toEqual(['mcp-apps-web'])
