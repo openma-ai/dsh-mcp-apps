@@ -44,4 +44,12 @@ describe('one-install bundle boundary', () => {
       expect(child.dsh?.bundle).toBeUndefined()
     }
   })
+
+  it('uses npm Trusted Publisher without a long-lived token', async () => {
+    const workflow = await readFile(resolve(root, '.github/workflows/release.yml'), 'utf8')
+    expect(workflow).toMatch(/id-token:\s*write/u)
+    expect(workflow).toMatch(/actions\/setup-node@v6/u)
+    expect(workflow).toMatch(/package-manager-cache:\s*false/u)
+    expect(workflow).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/u)
+  })
 })
