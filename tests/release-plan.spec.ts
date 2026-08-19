@@ -1,0 +1,47 @@
+import { readFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+import { createReleasePlan } from '../scripts/release-plan.mjs'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+describe('one-install bundle boundary', () => {
+  it('publishes runtime packages before the public root bundle', async () => {
+    await expect(createReleasePlan(root, 'v0.0.1')).resolves.toEqual([
+      {
+        directory: 'packages/host',
+        name: '@openma/dsh-mcp-apps-host',
+        version: '0.0.1',
+      },
+      {
+        directory: 'packages/web',
+        name: '@openma/dsh-mcp-apps-web',
+        version: '0.0.1',
+      },
+      {
+        directory: '.',
+        name: '@openma/dsh-mcp-apps',
+        version: '0.0.1',
+      },
+    ])
+  })
+
+  it('keeps Host and Web publishable only as non-bundle runtime dependencies', async () => {
+    const rootManifest = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')) as {
+      bundledDependencies?: string[]
+    }
+    expect(rootManifest.bundledDependencies).toBeUndefined()
+
+    for (const directory of ['packages/host', 'packages/web']) {
+      const child = JSON.parse(await readFile(resolve(root, directory, 'package.json'), 'utf8')) as {
+        dsh?: { bundle?: unknown }
+        private?: boolean
+        publishConfig?: { access?: string }
+      }
+      expect(child.private).not.toBe(true)
+      expect(child.publishConfig?.access).toBe('public')
+      expect(child.dsh?.bundle).toBeUndefined()
+    }
+  })
+})

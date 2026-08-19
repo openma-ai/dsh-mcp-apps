@@ -30,15 +30,16 @@ dsh plugin --profile web add ./packages/web
 The renderer consumes a composition-provided Remote when present and mounts its
 checked-in descriptor only for the standalone fallback Host.
 
-The bundle patch expands to:
+The bundle patch mounts one nestable kernel:
 
 ```yaml
-- id: mcp-apps-host
-  name: '@openma/dsh-mcp-apps-host'
-
-- id: mcp-apps-web
-  name: '@openma/dsh-mcp-apps-web'
+- id: mcp-apps-bundle
+  name: '@openma/dsh-mcp-apps'
 ```
+
+That kernel owns two independent child rows, `mcp-apps-host` and
+`mcp-apps-web`. This lets another bundle—such as the Agent Plugins Bridge—mount
+MCP Apps as one nested plugin without copying its implementation or lifecycle.
 
 Keep MCP server connections as their own plugin rows. DSH's `mcp-client` notices the optional `ctx.mcpApps` service and contributes its live connection automatically:
 
@@ -56,9 +57,9 @@ Tools, resources, prompts, model-facing execution, and AppBridge calls therefore
 
 | Package | Role |
 | --- | --- |
-| `@openma/dsh-mcp-apps` | Installable bundle; contains only the Cordis patch and package dependencies |
-| `@openma/dsh-mcp-apps-host` | `ctx.mcpApps` provider registry plus the generated Typert Host/Remote contract |
-| `@openma/dsh-mcp-apps-web` | Shape-driven Tool-result renderer, official AppBridge, and browser sandbox |
+| `@openma/dsh-mcp-apps` | Installable and nestable bundle kernel; owns the Host/Web child-row lifecycle |
+| `@openma/dsh-mcp-apps-host` | Internal runtime package: `ctx.mcpApps` provider registry plus the generated Typert Host/Remote contract |
+| `@openma/dsh-mcp-apps-web` | Internal runtime package: shape-driven Tool-result renderer, official AppBridge, and browser sandbox |
 
 The flow is:
 

@@ -1,6 +1,6 @@
 {
   "name": "@openma/dsh-mcp-apps",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "MCP Apps Host and renderer bundle for DeepSeek Harness",
   "license": "MIT",
   "publishConfig": {
@@ -11,10 +11,21 @@
     "url": "git+https://github.com/openma-ai/dsh-mcp-apps.git"
   },
   "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
   "workspaces": [
     "packages/*"
   ],
   "files": [
+    "lib",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -25,23 +36,26 @@
     }
   },
   "dependencies": {
-    "@openma/dsh-mcp-apps-host": "0.1.0",
-    "@openma/dsh-mcp-apps-web": "0.1.0"
+    "@openma/dsh-mcp-apps-host": "0.0.1",
+    "@openma/dsh-mcp-apps-web": "0.0.1"
   },
   "scripts": {
+    "build:root": "tsc -p tsconfig.root.json",
     "build:host": "npm run build --workspace @openma/dsh-mcp-apps-host",
     "build:web": "npm run build --workspace @openma/dsh-mcp-apps-web",
     "build:example:display-modes": "tsdown --config examples/display-modes/tsdown.config.ts",
-    "build": "npm run build:host && npm run build:web && npm run build:example:display-modes",
+    "build": "npm run build:root && npm run build:host && npm run build:web && npm run build:example:display-modes",
     "prepack": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
     "pretest:browser": "npm run build:example:display-modes",
     "test:browser": "vitest run apps/web/tests/mcp-app-sandbox.e2e.spec.ts",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "tsc -p tsconfig.root.json --noEmit && npm run typecheck --workspaces --if-present",
+    "release:publish": "node scripts/publish.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.2",
     "@deepseek-ai/dsh-api-gateway": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-tool": "0.1.0-rc.6",
@@ -65,5 +79,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/cordis-plugin-loader": ">=1.0.2 <2"
   }
 }

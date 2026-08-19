@@ -1,6 +1,3 @@
 - insert:
-    - id: mcp-apps-host
-      name: '@openma/dsh-mcp-apps-host'
-
-    - id: mcp-apps-web
-      name: '@openma/dsh-mcp-apps-web'
+    - id: mcp-apps-bundle
+      name: '@openma/dsh-mcp-apps'
