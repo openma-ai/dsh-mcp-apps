@@ -26,6 +26,5 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
-      - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: npm run release:publish -- "$GITHUB_REF_NAME"

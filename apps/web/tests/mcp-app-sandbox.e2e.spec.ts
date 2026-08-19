@@ -14,8 +14,14 @@ let fixtureClient: Client
 let fixtureHtml: string
 
 beforeAll(async () => {
-  const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  browser = await chromium.launch(existsSync(systemChrome) ? { executablePath: systemChrome } : {})
+  const systemChrome = [
+    process.env.CHROME_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+  ].find(path => path !== undefined && existsSync(path))
+  browser = await chromium.launch(systemChrome === undefined ? {} : { executablePath: systemChrome })
   const fixtureServer = fileURLToPath(new URL('../../../examples/display-modes/server.mjs', import.meta.url))
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -32,7 +38,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await fixtureClient?.close()
-  await browser.close()
+  await browser?.close()
 }, 30_000)
 
 async function hostPage(): Promise<Page> {

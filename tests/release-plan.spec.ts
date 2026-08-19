@@ -50,7 +50,10 @@ describe('one-install bundle boundary', () => {
     expect(workflow).toMatch(/id-token:\s*write/u)
     expect(workflow).toMatch(/actions\/setup-node@v6/u)
     expect(workflow).toMatch(/package-manager-cache:\s*false/u)
-    expect(workflow).toMatch(/playwright install --with-deps chromium/u)
+    expect(workflow).not.toMatch(/playwright install/u)
     expect(workflow).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/u)
+
+    const browserTest = await readFile(resolve(root, 'apps/web/tests/mcp-app-sandbox.e2e.spec.ts'), 'utf8')
+    expect(browserTest).toContain('/usr/bin/google-chrome')
   })
 })
