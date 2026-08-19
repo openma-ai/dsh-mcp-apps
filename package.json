@@ -47,7 +47,7 @@
     "build": "npm run build:root && npm run build:host && npm run build:web && npm run build:example:display-modes",
     "prepack": "npm run build",
     "pretest": "npm run build",
-    "test": "vitest run",
+    "test": "vitest run --exclude apps/web/tests/**/*.e2e.spec.ts",
     "pretest:browser": "npm run build:example:display-modes",
     "test:browser": "vitest run apps/web/tests/mcp-app-sandbox.e2e.spec.ts",
     "typecheck": "tsc -p tsconfig.root.json --noEmit && npm run typecheck --workspaces --if-present",
