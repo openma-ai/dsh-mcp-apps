@@ -1,6 +1,6 @@
 {
   "name": "@openma/dsh-mcp-apps-host",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MCP Apps Host registry and Typert Remote API for DeepSeek Harness",
   "license": "MIT",
   "publishConfig": {

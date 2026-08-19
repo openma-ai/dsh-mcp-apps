@@ -1,6 +1,6 @@
 {
   "name": "@openma/dsh-mcp-apps",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MCP Apps Host and renderer bundle for DeepSeek Harness",
   "license": "MIT",
   "publishConfig": {
@@ -36,8 +36,8 @@
     }
   },
   "dependencies": {
-    "@openma/dsh-mcp-apps-host": "0.0.1",
-    "@openma/dsh-mcp-apps-web": "0.0.1"
+    "@openma/dsh-mcp-apps-host": "0.0.2",
+    "@openma/dsh-mcp-apps-web": "0.0.2"
   },
   "scripts": {
     "build:root": "tsc -p tsconfig.root.json",

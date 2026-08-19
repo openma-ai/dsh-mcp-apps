@@ -8,21 +8,21 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 describe('one-install bundle boundary', () => {
   it('publishes runtime packages before the public root bundle', async () => {
-    await expect(createReleasePlan(root, 'v0.0.1')).resolves.toEqual([
+    await expect(createReleasePlan(root, 'v0.0.2')).resolves.toEqual([
       {
         directory: 'packages/host',
         name: '@openma/dsh-mcp-apps-host',
-        version: '0.0.1',
+        version: '0.0.2',
       },
       {
         directory: 'packages/web',
         name: '@openma/dsh-mcp-apps-web',
-        version: '0.0.1',
+        version: '0.0.2',
       },
       {
         directory: '.',
         name: '@openma/dsh-mcp-apps',
-        version: '0.0.1',
+        version: '0.0.2',
       },
     ])
   })
